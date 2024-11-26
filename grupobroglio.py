@@ -22,7 +22,7 @@ st.markdown("""
             margin-bottom: 20px;
             padding: 30px;
             border-radius: 15px;
-            background-color: #2a2e38;
+            background-color: #3a3f4b;
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
             text-align: center;
         }
@@ -33,6 +33,7 @@ st.markdown("""
         .card-summary span {
             font-size: 2.5rem;
             font-weight: bold;
+            color: #17a2b8;
         }
         .dataframe {
             margin-top: 20px;
@@ -106,7 +107,7 @@ if uploaded_file:
     df_positivo = df[df['Valor'] > 0]
     if not df_positivo.empty:
         fig, ax = plt.subplots(figsize=(12, 6))
-        df_positivo.groupby('Plano de contas')['Valor'].sum().plot(kind='bar', ax=ax, color='green', alpha=0.7)
+        df_positivo.groupby('Plano de contas')['Valor'].sum().plot(kind='bar', ax=ax, color='green', alpha=0.8)
         ax.set_ylabel("Valor (R$)")
         ax.set_title("Entradas de Disponibilidade por Plano de Contas")
         plt.xticks(rotation=45, ha="right")
@@ -115,26 +116,13 @@ if uploaded_file:
     else:
         st.write("Não há valores positivos para exibir.")
 
-    # Gráfico de Despesas (valores negativos)
-    st.write("### Gráfico de Despesas (Valores Negativos)")
-    df_negativo = df[df['Valor'] < 0]
-    if not df_negativo.empty:
-        fig2, ax2 = plt.subplots(figsize=(12, 6))
-        df_negativo.groupby('Plano de contas')['Valor'].sum().plot(kind='bar', ax=ax2, color='red', alpha=0.7)
-        ax2.set_ylabel("Valor (R$)")
-        ax2.set_title("Despesas por Plano de Contas")
-        plt.xticks(rotation=45, ha="right")
-        plt.tight_layout()
-        st.pyplot(fig2)
-    else:
-        st.write("Não há valores negativos para exibir.")
-
     # Top 5 categorias de despesas
     st.write("### Top 5 Categorias de Despesas")
+    df_negativo = df[df['Valor'] < 0]
     if not df_negativo.empty:
         top_5 = df_negativo.groupby('Plano de contas')['Valor'].sum().nsmallest(5).abs()
         fig3, ax3 = plt.subplots(figsize=(12, 6))
-        top_5.plot(kind='barh', ax=ax3, color='orange', alpha=0.7)
+        top_5.plot(kind='barh', ax=ax3, color='#ff6347', alpha=0.8)
         ax3.set_xlabel("Valor (R$)")
         ax3.set_title("Top 5 Categorias de Despesas")
         plt.tight_layout()
@@ -149,4 +137,3 @@ if uploaded_file:
     st.write("### Exportar Resumo para Excel")
     csv_data = convert_df(summary_pivot)
     st.download_button(label="Exportar para CSV", data=csv_data, file_name='Resumo_Plano_De_Contas.csv', mime='text/csv')
-
