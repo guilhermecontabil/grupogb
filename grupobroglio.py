@@ -119,8 +119,9 @@ if df is not None:
     # Gráfico de Entradas de Disponibilidade (valores positivos) - Usando Plotly para interatividade
     st.write("### Gráfico de Entradas de Disponibilidade (Valores Positivos)")
     df_positivo = df_filtrado[df_filtrado['Valor'] > 0]
-    if not df_positivo.empty:
-        fig = px.bar(df_positivo, x='Plano de contas', y='Valor', color='Plano de contas', title='Entradas de Disponibilidade por Plano de Contas', labels={'Valor': 'Valor (R$)'}, template='plotly_dark')
+    df_positivo_agrupado = df_positivo.groupby('Plano de contas')['Valor'].sum().reset_index()
+    if not df_positivo_agrupado.empty:
+        fig = px.bar(df_positivo_agrupado, x='Plano de contas', y='Valor', color='Plano de contas', title='Entradas de Disponibilidade por Plano de Contas', labels={'Valor': 'Valor (R$)'}, template='plotly_dark')
         fig.update_layout(xaxis_tickangle=-45)
         st.plotly_chart(fig, use_container_width=True)
     else:
@@ -129,8 +130,9 @@ if df is not None:
     # Top 5 categorias de despesas - Usando Plotly para interatividade
     st.write("### Top 5 Categorias de Despesas")
     df_negativo = df_filtrado[df_filtrado['Valor'] < 0]
-    if not df_negativo.empty:
-        top_5 = df_negativo.groupby('Plano de contas')['Valor'].sum().nsmallest(5).abs().reset_index()
+    df_negativo_agrupado = df_negativo.groupby('Plano de contas')['Valor'].sum().abs().reset_index()
+    if not df_negativo_agrupado.empty:
+        top_5 = df_negativo_agrupado.nsmallest(5, 'Valor')
         fig3 = px.bar(top_5, y='Plano de contas', x='Valor', orientation='h', title='Top 5 Categorias de Despesas', labels={'Valor': 'Valor (R$)', 'Plano de contas': 'Plano de Contas'}, template='plotly_dark', color_discrete_sequence=['#ff6347'])
         st.plotly_chart(fig3, use_container_width=True)
     else:
