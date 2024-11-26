@@ -112,6 +112,11 @@ if df is not None:
     summary = df_filtrado.groupby(['Plano de contas', 'Mês/Ano'])['Valor'].sum().reset_index()
 
     st.write("### Total por Plano de Contas (Agrupado por Mês/Ano)")
+    # Adicionando filtro de busca por plano de contas
+    filtro_plano_contas = st.text_input("Filtrar Plano de Contas:")
+    if filtro_plano_contas:
+        summary = summary[summary['Plano de contas'].str.contains(filtro_plano_contas, case=False, na=False)]
+
     summary_pivot = summary.pivot(index='Plano de contas', columns='Mês/Ano', values='Valor').fillna(0)
     summary_pivot['Total'] = summary_pivot.sum(axis=1)
     st.dataframe(summary_pivot)
