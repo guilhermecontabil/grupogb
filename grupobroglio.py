@@ -128,11 +128,11 @@ if df is not None:
         st.write("Não há valores positivos para exibir.")
 
     # Top 5 categorias de despesas - Usando Plotly para interatividade
-    st.write("### Top 5 Categorias de Despesas")
+    st.write("### Top 5 Categorias de Despesas (Maiores Valores no Período)")
     df_negativo = df_filtrado[df_filtrado['Valor'] < 0]
     df_negativo_agrupado = df_negativo.groupby('Plano de contas')['Valor'].sum().abs().reset_index()
     if not df_negativo_agrupado.empty:
-        top_5 = df_negativo_agrupado.nsmallest(5, 'Valor')
+        top_5 = df_negativo_agrupado.nlargest(5, 'Valor')
         fig3 = px.bar(top_5, y='Plano de contas', x='Valor', orientation='h', title='Top 5 Categorias de Despesas', labels={'Valor': 'Valor (R$)', 'Plano de contas': 'Plano de Contas'}, template='plotly_dark', color_discrete_sequence=['#ff6347'])
         st.plotly_chart(fig3, use_container_width=True)
     else:
