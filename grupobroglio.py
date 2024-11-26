@@ -78,16 +78,18 @@ if df is not None:
 
     # Aplicando o filtro de loja
     if loja_selecionada != "Todas as Lojas":
-        df = df[df['Loja'] == loja_selecionada]
+        df_filtrado = df[df['Loja'] == loja_selecionada]
+    else:
+        df_filtrado = df
 
     # Exibir dados em uma tabela
     st.write("### Dados Importados")
-    st.dataframe(df)
+    st.dataframe(df_filtrado)
 
     # Exibir cards de resumo com totais
     st.write("### Resumo de Vendas")
-    total_vendas = df[df['Plano de contas'].str.contains(r'(?i)^vendas$', na=False)]['Valor'].sum()
-    total_vendas_balcao = df[df['Plano de contas'].str.contains(r'(?i)vendas no balcão', na=False)]['Valor'].sum()
+    total_vendas = df_filtrado[df_filtrado['Plano de contas'].str.contains(r'(?i)^vendas$', na=False)]['Valor'].sum()
+    total_vendas_balcao = df_filtrado[df_filtrado['Plano de contas'].str.contains(r'(?i)vendas no balcão', na=False)]['Valor'].sum()
 
     col1, col2 = st.columns(2)
     with col1:
@@ -106,8 +108,8 @@ if df is not None:
         """.format(total_vendas_balcao), unsafe_allow_html=True)
 
     # Resumo por plano de contas agrupado por Mês/Ano
-    df['Mês/Ano'] = df['Data'].dt.to_period('M')
-    summary = df.groupby(['Plano de contas', 'Mês/Ano'])['Valor'].sum().reset_index()
+    df_filtrado['Mês/Ano'] = df_filtrado['Data'].dt.to_period('M')
+    summary = df_filtrado.groupby(['Plano de contas', 'Mês/Ano'])['Valor'].sum().reset_index()
 
     st.write("### Total por Plano de Contas (Agrupado por Mês/Ano)")
     summary_pivot = summary.pivot(index='Plano de contas', columns='Mês/Ano', values='Valor').fillna(0)
@@ -116,7 +118,7 @@ if df is not None:
 
     # Gráfico de Entradas de Disponibilidade (valores positivos) - Usando Plotly para interatividade
     st.write("### Gráfico de Entradas de Disponibilidade (Valores Positivos)")
-    df_positivo = df[df['Valor'] > 0]
+    df_positivo = df_filtrado[df_filtrado['Valor'] > 0]
     if not df_positivo.empty:
         fig = px.bar(df_positivo, x='Plano de contas', y='Valor', color='Plano de contas', title='Entradas de Disponibilidade por Plano de Contas', labels={'Valor': 'Valor (R$)'}, template='plotly_dark')
         fig.update_layout(xaxis_tickangle=-45)
@@ -126,7 +128,7 @@ if df is not None:
 
     # Top 5 categorias de despesas - Usando Plotly para interatividade
     st.write("### Top 5 Categorias de Despesas")
-    df_negativo = df[df['Valor'] < 0]
+    df_negativo = df_filtrado[df_filtrado['Valor'] < 0]
     if not df_negativo.empty:
         top_5 = df_negativo.groupby('Plano de contas')['Valor'].sum().nsmallest(5).abs().reset_index()
         fig3 = px.bar(top_5, y='Plano de contas', x='Valor', orientation='h', title='Top 5 Categorias de Despesas', labels={'Valor': 'Valor (R$)', 'Plano de contas': 'Plano de Contas'}, template='plotly_dark', color_discrete_sequence=['#ff6347'])
