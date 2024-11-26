@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 import random
 
 # Configurar a página do Streamlit
@@ -41,48 +42,65 @@ if uploaded_file:
     def get_random_color():
         return "#{:06x}".format(random.randint(0, 0xFFFFFF))
 
+    sns.set_theme(style="whitegrid")
+
     # Gráfico de Entradas de Disponibilidade (Valores Positivos)
-    st.write("### Gráfico de Entradas de Disponibilidade")
+    st.write("### Gráfico de Entradas de Disponibilidade (Valores Positivos)")
     df_positivo = df[df['Valor'] > 0]
-    categorias_positivas = df_positivo['Plano de contas'].unique()
-    valores_por_categoria_positiva = df_positivo.groupby('Plano de contas')['Valor'].sum()
-
-    fig, ax = plt.subplots(figsize=(10, 6))
-    ax.bar(categorias_positivas, valores_por_categoria_positiva, color='green', alpha=0.7)
-    ax.set_ylabel('Valor (R$)')
-    ax.set_title('Entradas de Disponibilidade (Valores Positivos)')
-    plt.xticks(rotation=45, ha="right")
-    plt.tight_layout()
-
-    st.pyplot(fig)
+    if not df_positivo.empty:
+        fig, ax = plt.subplots(figsize=(12, 6))
+        sns.barplot(
+            x=df_positivo['Plano de contas'],
+            y=df_positivo['Valor'],
+            ax=ax,
+            palette='viridis'
+        )
+        ax.set_xlabel("Plano de Contas")
+        ax.set_ylabel("Valor (R$)")
+        ax.set_title("Entradas de Disponibilidade")
+        plt.xticks(rotation=45, ha="right")
+        st.pyplot(fig)
+    else:
+        st.write("Não há valores positivos para exibir no gráfico de entradas.")
 
     # Gráfico de Despesas (Valores Negativos)
     st.write("### Gráfico de Despesas (Valores Negativos)")
     df_negativo = df[df['Valor'] < 0]
-    categorias_negativas = df_negativo['Plano de contas'].unique()
-    valores_por_categoria_negativa = df_negativo.groupby('Plano de contas')['Valor'].sum()
+    if not df_negativo.empty:
+        fig2, ax2 = plt.subplots(figsize=(12, 6))
+        sns.barplot(
+            x=df_negativo['Plano de contas'],
+            y=df_negativo['Valor'],
+            ax=ax2,
+            palette='rocket',
+            color='red'
+        )
+        ax2.set_xlabel("Plano de Contas")
+        ax2.set_ylabel("Valor (R$)")
+        ax2.set_title("Despesas (Valores Negativos)")
+        plt.xticks(rotation=45, ha="right")
+        st.pyplot(fig2)
+    else:
+        st.write("Não há valores negativos para exibir no gráfico de despesas.")
 
-    fig2, ax2 = plt.subplots(figsize=(10, 6))
-    ax2.bar(categorias_negativas, valores_por_categoria_negativa, color='red', alpha=0.7)
-    ax2.set_ylabel('Valor (R$)')
-    ax2.set_title('Despesas (Valores Negativos)')
-    plt.xticks(rotation=45, ha="right")
-    plt.tight_layout()
-
-    st.pyplot(fig2)
-
-    # Top 5 categorias de despesas
+    # Top 5 categorias de despesas (valores negativos)
     st.write("### Top 5 Categorias de Despesas (Valores Negativos)")
-    top_despesas = df_negativo.groupby('Plano de contas')['Valor'].sum().nsmallest(5)
-
-    fig3, ax3 = plt.subplots(figsize=(10, 6))
-    ax3.bar(top_despesas.index, top_despesas.values, color='orange', alpha=0.7)
-    ax3.set_ylabel('Valor (R$)')
-    ax3.set_title('Top 5 Categorias de Despesas (Valores Negativos)')
-    plt.xticks(rotation=45, ha="right")
-    plt.tight_layout()
-
-    st.pyplot(fig3)
+    if not df_negativo.empty:
+        top_despesas = df_negativo.groupby('Plano de contas')['Valor'].sum().nsmallest(5).abs()
+        fig3, ax3 = plt.subplots(figsize=(12, 6))
+        sns.barplot(
+            y=top_despesas.index,
+            x=top_despesas.values,
+            ax=ax3,
+            palette='magma'
+        )
+        ax3.set_xlabel("Valor (R$)")
+        ax3.set_ylabel("Plano de Contas")
+        ax3.set_title("Top 5 Categorias de Despesas (Valores Negativos)")
+        plt.tight_layout()
+        st.pyplot(fig3)
+    else:
+        st.write("Não há valores negativos para exibir nas 5 maiores despesas.")
 
     # Filtro de Contas para Card de Resumo
     st.write("### Filtrar Contas para Resumo")
