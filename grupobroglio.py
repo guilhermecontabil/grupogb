@@ -1,71 +1,61 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import openpyxl
 import plotly.express as px
-import random
-import os
 
 # Configuração inicial da página do Streamlit
-st.set_page_config(page_title="Dashboard Financeira", layout="wide")
+st.set_page_config(page_title="Dashboard Financeiro Neon", layout="wide")
 
-# Estilos CSS personalizados para a interface
+# Função para converter DataFrame para CSV
+def convert_df(df):
+    return df.to_csv(index=False).encode('utf-8')
+
+# --- Estilos CSS Personalizados ---
 st.markdown("""
     <style>
-        body {
-            background-color: #1c1f26;
-            color: #e0e0e0;
-            font-family: 'Roboto', sans-serif;
-        }
-        h2, h3 {
-            color: #ffffff;
-        }
-        .card-summary {
-            margin-bottom: 20px;
-            padding: 30px;
-            border-radius: 15px;
-            background-color: #3a3f4b;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
-            text-align: center;
-        }
-        .card-summary h4 {
-            font-size: 1.7rem;
-            color: #17a2b8;
-        }
-        .card-summary span {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #17a2b8;
-        }
-        .dataframe {
-            margin-top: 20px;
-            background-color: #2a2e38;
-            color: #ffffff;
-        }
+    /* Estilo dos títulos */
+    h1, h2, h3, h4, h5, h6 {
+        color: #39ff14;
+    }
+    /* Estilo dos textos */
+    .st-text, .st-dataframe {
+        color: #ffffff;
+    }
+    /* Estilo das métricas */
+    .stMetric-label {
+        color: #39ff14;
+    }
+    .stMetric-value {
+        color: #39ff14;
+    }
+    /* Estilo dos botões */
+    .stButton>button {
+        background-color: #39ff14;
+        color: #000000;
+    }
+    /* Estilo dos elementos da barra lateral */
+    .sidebar .sidebar-content {
+        background-color: #1a1a1a;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# Função para carregar ou substituir o arquivo Excel
-DEFAULT_FILE_PATH = "default_data.xlsx"
+# --- Barra Lateral ---
+st.sidebar.title("⚙️ Configurações")
 
-if os.path.exists(DEFAULT_FILE_PATH):
-    default_file = pd.read_excel(DEFAULT_FILE_PATH)
-else:
-    default_file = None
+# Upload do arquivo Excel
+uploaded_file = st.sidebar.file_uploader("📥 Importar arquivo Excel", type=["xlsx"])
 
-uploaded_file = st.file_uploader("Importar ou substituir o arquivo Excel", type=["xlsx"])
-
-if uploaded_file:
-    # Salvar o arquivo como padrão
-    with open(DEFAULT_FILE_PATH, "wb") as f:
-        f.write(uploaded_file.getbuffer())
+if uploaded_file is not None:
+    # Carregar o arquivo Excel na memória
     df = pd.read_excel(uploaded_file)
-    st.success("Arquivo carregado com sucesso e definido como padrão.")
-elif default_file is not None:
-    st.info("Usando arquivo padrão salvo anteriormente.")
-    df = default_file
+    st.sidebar.success("Arquivo carregado com sucesso.")
+    # Armazenar o DataFrame no session_state
+    st.session_state['df'] = df
+elif 'df' in st.session_state:
+    # Usar o DataFrame armazenado no session_state
+    df = st.session_state['df']
 else:
-    st.warning("Por favor, faça o upload de um arquivo Excel para começar.")
+    st.sidebar.warning("Por favor, faça o upload de um arquivo Excel para começar.")
     df = None
 
 if df is not None:
@@ -74,7 +64,7 @@ if df is not None:
 
     # Filtro por loja
     lojas = df['Loja'].unique()
-    loja_selecionada = st.selectbox("Filtrar por Loja:", ["Todas as Lojas"] + list(lojas))
+    loja_selecionada = st.sidebar.selectbox("🏬 Filtrar por Loja:", ["Todas as Lojas"] + list(lojas))
 
     # Aplicando o filtro de loja
     if loja_selecionada != "Todas as Lojas":
@@ -82,71 +72,108 @@ if df is not None:
     else:
         df_filtrado = df
 
-    # Exibir dados em uma tabela
-    st.write("### Dados Importados")
-    st.dataframe(df_filtrado)
+    # Filtro por Plano de Contas
+    filtro_plano_contas = st.sidebar.text_input("🔍 Filtrar Plano de Contas:")
 
-    # Exibir cards de resumo com totais
-    st.write("### Resumo de Vendas")
-    total_vendas = df_filtrado[df_filtrado['Plano de contas'].str.contains(r'(?i)^vendas$', na=False)]['Valor'].sum()
-    total_vendas_balcao = df_filtrado[df_filtrado['Plano de contas'].str.contains(r'(?i)vendas no balcão', na=False)]['Valor'].sum()
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("""
-            <div class="card-summary">
-                <h4>Total Vendas</h4>
-                <span>R$ {:,.2f}</span>
-            </div>
-        """.format(total_vendas), unsafe_allow_html=True)
-    with col2:
-        st.markdown("""
-            <div class="card-summary">
-                <h4>Total Vendas Balcão</h4>
-                <span>R$ {:,.2f}</span>
-            </div>
-        """.format(total_vendas_balcao), unsafe_allow_html=True)
-
-    # Resumo por plano de contas agrupado por Mês/Ano
-    df_filtrado['Mês/Ano'] = df_filtrado['Data'].dt.to_period('M')
-    summary = df_filtrado.groupby(['Plano de contas', 'Mês/Ano'])['Valor'].sum().reset_index()
-
-    st.write("### Total por Plano de Contas (Agrupado por Mês/Ano)")
-    # Adicionando filtro de busca por plano de contas
-    filtro_plano_contas = st.text_input("Filtrar Plano de Contas:")
     if filtro_plano_contas:
-        summary = summary[summary['Plano de contas'].str.contains(filtro_plano_contas, case=False, na=False)]
+        df_filtrado = df_filtrado[df_filtrado['Plano de contas'].str.contains(filtro_plano_contas, case=False, na=False)]
 
-    summary_pivot = summary.pivot(index='Plano de contas', columns='Mês/Ano', values='Valor').fillna(0)
-    summary_pivot['Total'] = summary_pivot.sum(axis=1)
-    st.dataframe(summary_pivot)
+    # --- Cabeçalho ---
+    st.title("💹 Dashboard Financeiro Neon")
+    st.markdown("Bem-vindo ao dashboard financeiro com temática neon. Visualize e analise os dados de vendas e despesas com um visual moderno.")
 
-    # Gráfico de Entradas de Disponibilidade (valores positivos) - Usando Plotly para interatividade
-    st.write("### Gráfico de Entradas de Disponibilidade (Valores Positivos)")
-    df_positivo = df_filtrado[df_filtrado['Valor'] > 0]
-    df_positivo_agrupado = df_positivo.groupby('Plano de contas')['Valor'].sum().reset_index()
-    if not df_positivo_agrupado.empty:
-        fig = px.bar(df_positivo_agrupado, x='Plano de contas', y='Valor', color='Plano de contas', title='Entradas de Disponibilidade por Plano de Contas', labels={'Valor': 'Valor (R$)'}, template='plotly_dark')
-        fig.update_layout(xaxis_tickangle=-45)
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.write("Não há valores positivos para exibir.")
+    # --- Criação das Abas ---
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Resumo", "📄 Dados", "📈 Gráficos", "💾 Exportação"])
 
-    # Top 5 categorias de despesas - Usando Plotly para interatividade
-    st.write("### Top 5 Categorias de Despesas (Maiores Valores no Período)")
-    df_negativo = df_filtrado[df_filtrado['Valor'] < 0]
-    df_negativo_agrupado = df_negativo.groupby('Plano de contas')['Valor'].sum().abs().reset_index()
-    if not df_negativo_agrupado.empty:
-        top_5 = df_negativo_agrupado.nlargest(5, 'Valor')
-        fig3 = px.bar(top_5, y='Plano de contas', x='Valor', orientation='h', title='Top 5 Categorias de Despesas', labels={'Valor': 'Valor (R$)', 'Plano de contas': 'Plano de Contas'}, template='plotly_dark', color_discrete_sequence=['#ff6347'])
-        st.plotly_chart(fig3, use_container_width=True)
-    else:
-        st.write("Não há valores negativos para exibir nas top 5 despesas.")
+    # --- Aba Resumo ---
+    with tab1:
+        st.subheader("Resumo de Vendas")
+        total_vendas = df_filtrado[df_filtrado['Plano de contas'].str.contains(r'(?i)^vendas$', na=False)]['Valor'].sum()
+        total_vendas_balcao = df_filtrado[df_filtrado['Plano de contas'].str.contains(r'(?i)vendas no balcão', na=False)]['Valor'].sum()
 
-    # Exportar Tabela para CSV
-    def convert_df(df):
-        return df.to_csv(index=False).encode('utf-8')
+        col1, col2 = st.columns(2)
+        col1.metric("Total Vendas 🛒", f"R$ {total_vendas:,.2f}")
+        col2.metric("Total Vendas Balcão 🏬", f"R$ {total_vendas_balcao:,.2f}")
 
-    st.write("### Exportar Resumo para Excel")
-    csv_data = convert_df(summary_pivot)
-    st.download_button(label="Exportar para CSV", data=csv_data, file_name='Resumo_Plano_De_Contas.csv', mime='text/csv')
+        # Resumo por plano de contas agrupado por Mês/Ano
+        df_filtrado['Mês/Ano'] = df_filtrado['Data'].dt.to_period('M')
+        summary = df_filtrado.groupby(['Plano de contas', 'Mês/Ano'])['Valor'].sum().reset_index()
+        summary_pivot = summary.pivot(index='Plano de contas', columns='Mês/Ano', values='Valor').fillna(0)
+        summary_pivot['Total'] = summary_pivot.sum(axis=1)
+
+        st.subheader("Total por Plano de Contas (Agrupado por Mês/Ano)")
+        st.dataframe(summary_pivot.style.format({'Total': 'R$ {:,.2f}'}).set_properties(**{'background-color': '#1a1a1a', 'color': '#ffffff'}))
+
+    # --- Aba Dados ---
+    with tab2:
+        st.subheader("Dados Importados")
+        st.dataframe(df_filtrado.style.format({'Valor': 'R$ {:,.2f}'}).set_properties(**{'background-color': '#1a1a1a', 'color': '#ffffff'}))
+
+    # --- Aba Gráficos ---
+    with tab3:
+        # Gráfico de Entradas de Disponibilidade (valores positivos)
+        st.subheader("Entradas de Disponibilidade (Valores Positivos)")
+        df_positivo = df_filtrado[df_filtrado['Valor'] > 0]
+        df_positivo_agrupado = df_positivo.groupby('Plano de contas')['Valor'].sum().reset_index()
+        if not df_positivo_agrupado.empty:
+            fig = px.bar(
+                df_positivo_agrupado,
+                x='Plano de contas',
+                y='Valor',
+                color='Plano de contas',
+                title='Entradas de Disponibilidade por Plano de Contas',
+                labels={'Valor': 'Valor (R$)'},
+                template='plotly_dark',
+                color_discrete_sequence=px.colors.qualitative.Prism
+            )
+            fig.update_layout(
+                xaxis_tickangle=-45,
+                showlegend=False,
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#39ff14')
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.write("Não há valores positivos para exibir.")
+
+        # Top 5 categorias de despesas
+        st.subheader("Top 5 Categorias de Despesas")
+        df_negativo = df_filtrado[df_filtrado['Valor'] < 0]
+        df_negativo_agrupado = df_negativo.groupby('Plano de contas')['Valor'].sum().abs().reset_index()
+        if not df_negativo_agrupado.empty:
+            top_5 = df_negativo_agrupado.nlargest(5, 'Valor')
+            fig3 = px.bar(
+                top_5,
+                y='Plano de contas',
+                x='Valor',
+                orientation='h',
+                title='Top 5 Categorias de Despesas',
+                labels={'Valor': 'Valor (R$)', 'Plano de contas': 'Plano de Contas'},
+                template='plotly_dark',
+                color_discrete_sequence=['#ff1493']
+            )
+            fig3.update_layout(
+                yaxis={'categoryorder':'total ascending'},
+                showlegend=False,
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#39ff14')
+            )
+            st.plotly_chart(fig3, use_container_width=True)
+        else:
+            st.write("Não há valores negativos para exibir nas top 5 despesas.")
+
+    # --- Aba Exportação ---
+    with tab4:
+        st.subheader("Exportar Resumo")
+        csv_data = convert_df(summary_pivot)
+        st.download_button(
+            label="💾 Exportar Resumo para CSV",
+            data=csv_data,
+            file_name='Resumo_Plano_De_Contas.csv',
+            mime='text/csv'
+        )
+
+else:
+    st.warning("Por favor, faça o upload de um arquivo Excel para começar.")
