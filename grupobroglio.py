@@ -2,7 +2,9 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import openpyxl
+import plotly.express as px
 import random
+import os
 
 # Configuração inicial da página do Streamlit
 st.set_page_config(page_title="Dashboard Financeira", layout="wide")
@@ -43,16 +45,30 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Título da página
-st.title("Dashboard Financeira - Importar Excel e Gerar Resumo")
+# Função para carregar ou substituir o arquivo Excel
+DEFAULT_FILE_PATH = "default_data.xlsx"
 
-# Upload do arquivo Excel
-uploaded_file = st.file_uploader("Importar Arquivo Excel", type=["xlsx"])
+if os.path.exists(DEFAULT_FILE_PATH):
+    default_file = pd.read_excel(DEFAULT_FILE_PATH)
+else:
+    default_file = None
+
+uploaded_file = st.file_uploader("Importar ou substituir o arquivo Excel", type=["xlsx"])
 
 if uploaded_file:
-    # Leitura do arquivo Excel
+    # Salvar o arquivo como padrão
+    with open(DEFAULT_FILE_PATH, "wb") as f:
+        f.write(uploaded_file.getbuffer())
     df = pd.read_excel(uploaded_file)
+    st.success("Arquivo carregado com sucesso e definido como padrão.")
+elif default_file is not None:
+    st.info("Usando arquivo padrão salvo anteriormente.")
+    df = default_file
+else:
+    st.warning("Por favor, faça o upload de um arquivo Excel para começar.")
+    df = None
 
+if df is not None:
     # Tratamento de dados (formatação de datas)
     df['Data'] = pd.to_datetime(df['Data'], dayfirst=True, errors='coerce')
 
@@ -70,8 +86,8 @@ if uploaded_file:
 
     # Exibir cards de resumo com totais
     st.write("### Resumo de Vendas")
-    total_vendas = df[df['Plano de contas'].str.contains('vendas', case=False)]['Valor'].sum()
-    total_vendas_balcao = df[df['Plano de contas'].str.contains('vendas no balcão', case=False)]['Valor'].sum()
+    total_vendas = df[df['Plano de contas'].str.contains(r'(?i)^vendas$', na=False)]['Valor'].sum()
+    total_vendas_balcao = df[df['Plano de contas'].str.contains(r'(?i)vendas no balcão', na=False)]['Valor'].sum()
 
     col1, col2 = st.columns(2)
     with col1:
@@ -89,10 +105,6 @@ if uploaded_file:
             </div>
         """.format(total_vendas_balcao), unsafe_allow_html=True)
 
-    # Função para gerar uma cor aleatória para os gráficos
-    def get_random_color():
-        return "#{:06x}".format(random.randint(0, 0xFFFFFF))
-
     # Resumo por plano de contas agrupado por Mês/Ano
     df['Mês/Ano'] = df['Data'].dt.to_period('M')
     summary = df.groupby(['Plano de contas', 'Mês/Ano'])['Valor'].sum().reset_index()
@@ -102,31 +114,23 @@ if uploaded_file:
     summary_pivot['Total'] = summary_pivot.sum(axis=1)
     st.dataframe(summary_pivot)
 
-    # Gráfico de Entradas de Disponibilidade (valores positivos)
+    # Gráfico de Entradas de Disponibilidade (valores positivos) - Usando Plotly para interatividade
     st.write("### Gráfico de Entradas de Disponibilidade (Valores Positivos)")
     df_positivo = df[df['Valor'] > 0]
     if not df_positivo.empty:
-        fig, ax = plt.subplots(figsize=(12, 6))
-        df_positivo.groupby('Plano de contas')['Valor'].sum().plot(kind='bar', ax=ax, color='green', alpha=0.8)
-        ax.set_ylabel("Valor (R$)")
-        ax.set_title("Entradas de Disponibilidade por Plano de Contas")
-        plt.xticks(rotation=45, ha="right")
-        plt.tight_layout()
-        st.pyplot(fig)
+        fig = px.bar(df_positivo, x='Plano de contas', y='Valor', color='Plano de contas', title='Entradas de Disponibilidade por Plano de Contas', labels={'Valor': 'Valor (R$)'}, template='plotly_dark')
+        fig.update_layout(xaxis_tickangle=-45)
+        st.plotly_chart(fig, use_container_width=True)
     else:
         st.write("Não há valores positivos para exibir.")
 
-    # Top 5 categorias de despesas
+    # Top 5 categorias de despesas - Usando Plotly para interatividade
     st.write("### Top 5 Categorias de Despesas")
     df_negativo = df[df['Valor'] < 0]
     if not df_negativo.empty:
-        top_5 = df_negativo.groupby('Plano de contas')['Valor'].sum().nsmallest(5).abs()
-        fig3, ax3 = plt.subplots(figsize=(12, 6))
-        top_5.plot(kind='barh', ax=ax3, color='#ff6347', alpha=0.8)
-        ax3.set_xlabel("Valor (R$)")
-        ax3.set_title("Top 5 Categorias de Despesas")
-        plt.tight_layout()
-        st.pyplot(fig3)
+        top_5 = df_negativo.groupby('Plano de contas')['Valor'].sum().nsmallest(5).abs().reset_index()
+        fig3 = px.bar(top_5, y='Plano de contas', x='Valor', orientation='h', title='Top 5 Categorias de Despesas', labels={'Valor': 'Valor (R$)', 'Plano de contas': 'Plano de Contas'}, template='plotly_dark', color_discrete_sequence=['#ff6347'])
+        st.plotly_chart(fig3, use_container_width=True)
     else:
         st.write("Não há valores negativos para exibir nas top 5 despesas.")
 
