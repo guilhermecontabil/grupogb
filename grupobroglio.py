@@ -46,13 +46,10 @@ st.sidebar.title("⚙️ Configurações")
 uploaded_file = st.sidebar.file_uploader("📥 Importar arquivo Excel", type=["xlsx"])
 
 if uploaded_file is not None:
-    # Carregar o arquivo Excel na memória
     df = pd.read_excel(uploaded_file)
     st.sidebar.success("Arquivo carregado com sucesso.")
-    # Armazenar o DataFrame no session_state
     st.session_state['df'] = df
 elif 'df' in st.session_state:
-    # Usar o DataFrame armazenado no session_state
     df = st.session_state['df']
 else:
     st.sidebar.warning("Por favor, faça o upload de um arquivo Excel para começar.")
@@ -61,54 +58,72 @@ else:
 if df is not None:
     # Tratamento de dados (formatação de datas)
     df['Data'] = pd.to_datetime(df['Data'], dayfirst=True, errors='coerce')
-
-    # Filtro por loja
+    
+    # Filtro de Data - selecione o intervalo desejado
+    min_date = df['Data'].min()
+    max_date = df['Data'].max()
+    selected_dates = st.sidebar.date_input("Selecione o intervalo de datas", [min_date, max_date])
+    if isinstance(selected_dates, list) and len(selected_dates) == 2:
+        start_date, end_date = selected_dates
+        df = df[(df['Data'] >= pd.to_datetime(start_date)) & (df['Data'] <= pd.to_datetime(end_date))]
+    
+    # Filtro por Loja
     lojas = df['Loja'].unique()
     loja_selecionada = st.sidebar.selectbox("🏬 Filtrar por Loja:", ["Todas as Lojas"] + list(lojas))
-
-    # Aplicando o filtro de loja
     if loja_selecionada != "Todas as Lojas":
         df_filtrado = df[df['Loja'] == loja_selecionada]
     else:
         df_filtrado = df
-
+    
     # Filtro por Plano de Contas
     filtro_plano_contas = st.sidebar.text_input("🔍 Filtrar Plano de Contas:")
-
     if filtro_plano_contas:
         df_filtrado = df_filtrado[df_filtrado['Plano de contas'].str.contains(filtro_plano_contas, case=False, na=False)]
-
+    
     # --- Cabeçalho ---
     st.title("💹 Dashboard Financeiro Neon")
     st.markdown("Bem-vindo ao dashboard financeiro com temática neon. Visualize e analise os dados de vendas e despesas com um visual moderno.")
-
+    
+    # Calcular métricas de vendas
+    total_vendas = df_filtrado[df_filtrado['Plano de contas'].str.contains(r'(?i)^vendas$', na=False)]['Valor'].sum()
+    total_vendas_balcao = df_filtrado[df_filtrado['Plano de contas'].str.contains(r'(?i)vendas no balcão', na=False)]['Valor'].sum()
+    total_vendas_total = total_vendas + total_vendas_balcao
+    
+    # Exibir cards de vendas no cabeçalho
+    colA, colB, colC = st.columns(3)
+    colA.metric("Total Vendas 🛒", f"R$ {total_vendas:,.2f}")
+    colB.metric("Total Vendas Balcão 🏬", f"R$ {total_vendas_balcao:,.2f}")
+    colC.metric("Total Vendas Geral", f"R$ {total_vendas_total:,.2f}")
+    
     # --- Criação das Abas ---
     tab1, tab2, tab3, tab4 = st.tabs(["📊 Resumo", "📄 Dados", "📈 Gráficos", "💾 Exportação"])
-
+    
     # --- Aba Resumo ---
     with tab1:
         st.subheader("Resumo de Vendas")
-        total_vendas = df_filtrado[df_filtrado['Plano de contas'].str.contains(r'(?i)^vendas$', na=False)]['Valor'].sum()
-        total_vendas_balcao = df_filtrado[df_filtrado['Plano de contas'].str.contains(r'(?i)vendas no balcão', na=False)]['Valor'].sum()
-
-        col1, col2 = st.columns(2)
-        col1.metric("Total Vendas 🛒", f"R$ {total_vendas:,.2f}")
-        col2.metric("Total Vendas Balcão 🏬", f"R$ {total_vendas_balcao:,.2f}")
-
-        # Resumo por plano de contas agrupado por Mês/Ano
-        df_filtrado['Mês/Ano'] = df_filtrado['Data'].dt.to_period('M')
+        
+        # Agrupar por Plano de Contas e Mês/Ano
+        df_filtrado['Mês/Ano'] = df_filtrado['Data'].dt.to_period('M').astype(str)
         summary = df_filtrado.groupby(['Plano de contas', 'Mês/Ano'])['Valor'].sum().reset_index()
         summary_pivot = summary.pivot(index='Plano de contas', columns='Mês/Ano', values='Valor').fillna(0)
         summary_pivot['Total'] = summary_pivot.sum(axis=1)
-
+    
         st.subheader("Total por Plano de Contas (Agrupado por Mês/Ano)")
-        st.dataframe(summary_pivot.style.format({'Total': 'R$ {:,.2f}'}).set_properties(**{'background-color': '#1a1a1a', 'color': '#ffffff'}))
-
+        st.dataframe(
+            summary_pivot.style
+            .format({'Total': 'R$ {:,.2f}'})
+            .set_properties(**{'background-color': '#1a1a1a', 'color': '#ffffff'})
+        )
+    
     # --- Aba Dados ---
     with tab2:
         st.subheader("Dados Importados")
-        st.dataframe(df_filtrado.style.format({'Valor': 'R$ {:,.2f}'}).set_properties(**{'background-color': '#1a1a1a', 'color': '#ffffff'}))
-
+        st.dataframe(
+            df_filtrado.style
+            .format({'Valor': 'R$ {:,.2f}'})
+            .set_properties(**{'background-color': '#1a1a1a', 'color': '#ffffff'})
+        )
+    
     # --- Aba Gráficos ---
     with tab3:
         # Gráfico de Entradas de Disponibilidade (valores positivos)
@@ -133,10 +148,11 @@ if df is not None:
                 paper_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='#39ff14')
             )
+            fig.update_yaxes(tickprefix="R$ ")
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.write("Não há valores positivos para exibir.")
-
+    
         # Top 5 categorias de despesas
         st.subheader("Top 5 Categorias de Despesas")
         df_negativo = df_filtrado[df_filtrado['Valor'] < 0]
@@ -160,10 +176,44 @@ if df is not None:
                 paper_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='#39ff14')
             )
+            fig3.update_xaxes(tickprefix="R$ ")
             st.plotly_chart(fig3, use_container_width=True)
         else:
             st.write("Não há valores negativos para exibir nas top 5 despesas.")
-
+    
+        # Novo Gráfico: DRE Mensal - Entradas vs Saídas
+        st.subheader("DRE Mensal: Entradas vs Saídas")
+        # Reutiliza a coluna 'Mês/Ano'
+        df_filtrado['Mês/Ano'] = df_filtrado['Data'].dt.to_period('M').astype(str)
+    
+        # Agrupa entradas e saídas separadamente
+        df_entradas = df_filtrado[df_filtrado['Valor'] > 0].groupby('Mês/Ano')['Valor'].sum().reset_index()
+        df_saidas = df_filtrado[df_filtrado['Valor'] < 0].groupby('Mês/Ano')['Valor'].sum().reset_index()
+        df_saidas['Valor'] = df_saidas['Valor'].abs()  # Converte para valor absoluto
+    
+        # Adiciona coluna identificando o tipo
+        df_entradas['Tipo'] = 'Entradas'
+        df_saidas['Tipo'] = 'Saídas'
+    
+        # Concatena os dois dataframes para visualização conjunta
+        df_dre = pd.concat([df_entradas, df_saidas], axis=0)
+    
+        if not df_dre.empty:
+            fig_dre = px.bar(
+                df_dre,
+                x='Mês/Ano',
+                y='Valor',
+                color='Tipo',
+                barmode='group',
+                title='DRE Mensal: Entradas vs Saídas',
+                labels={'Valor': 'Valor (R$)'},
+                template='plotly_dark'
+            )
+            fig_dre.update_yaxes(tickprefix="R$ ")
+            st.plotly_chart(fig_dre, use_container_width=True)
+        else:
+            st.write("Não há dados suficientes para exibir o gráfico DRE.")
+    
     # --- Aba Exportação ---
     with tab4:
         st.subheader("Exportar Resumo")
@@ -174,6 +224,5 @@ if df is not None:
             file_name='Resumo_Plano_De_Contas.csv',
             mime='text/csv'
         )
-
 else:
     st.warning("Por favor, faça o upload de um arquivo Excel para começar.")
