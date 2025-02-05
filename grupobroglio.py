@@ -46,6 +46,7 @@ st.sidebar.title("⚙️ Configurações")
 uploaded_file = st.sidebar.file_uploader("📥 Importar arquivo Excel", type=["xlsx"])
 
 if uploaded_file is not None:
+    # Carregar o arquivo Excel na memória
     df = pd.read_excel(uploaded_file)
     st.sidebar.success("Arquivo carregado com sucesso.")
     st.session_state['df'] = df
@@ -56,8 +57,9 @@ else:
     df = None
 
 if df is not None:
-    # Tratamento de dados (formatação de datas)
+    # Tratamento de dados: Converter 'Data' para datetime e 'Valor' para numérico
     df['Data'] = pd.to_datetime(df['Data'], dayfirst=True, errors='coerce')
+    df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce')
     
     # Filtro de Data - selecione o intervalo desejado
     min_date = df['Data'].min()
@@ -89,7 +91,7 @@ if df is not None:
     total_vendas_balcao = df_filtrado[df_filtrado['Plano de contas'].str.contains(r'(?i)vendas no balcão', na=False)]['Valor'].sum()
     total_vendas_total = total_vendas + total_vendas_balcao
     
-    # Exibir cards de vendas no cabeçalho
+    # Exibir cards de vendas no cabeçalho (formatados com 2 casas decimais)
     colA, colB, colC = st.columns(3)
     colA.metric("Total Vendas 🛒", f"R$ {total_vendas:,.2f}")
     colB.metric("Total Vendas Balcão 🏬", f"R$ {total_vendas_balcao:,.2f}")
@@ -111,7 +113,7 @@ if df is not None:
         st.subheader("Total por Plano de Contas (Agrupado por Mês/Ano)")
         st.dataframe(
             summary_pivot.style
-            .format({'Total': 'R$ {:,.2f}'})
+            .format(lambda x: f"R$ {x:,.2f}")
             .set_properties(**{'background-color': '#1a1a1a', 'color': '#ffffff'})
         )
     
@@ -120,7 +122,7 @@ if df is not None:
         st.subheader("Dados Importados")
         st.dataframe(
             df_filtrado.style
-            .format({'Valor': 'R$ {:,.2f}'})
+            .format({'Valor': lambda x: f"R$ {x:,.2f}"})
             .set_properties(**{'background-color': '#1a1a1a', 'color': '#ffffff'})
         )
     
@@ -148,7 +150,7 @@ if df is not None:
                 paper_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='#39ff14')
             )
-            fig.update_yaxes(tickprefix="R$ ")
+            fig.update_yaxes(tickprefix="R$ ", tickformat=",.2f")
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.write("Não há valores positivos para exibir.")
@@ -170,20 +172,20 @@ if df is not None:
                 color_discrete_sequence=['#ff1493']
             )
             fig3.update_layout(
-                yaxis={'categoryorder':'total ascending'},
+                yaxis={'categoryorder': 'total ascending'},
                 showlegend=False,
                 plot_bgcolor='rgba(0,0,0,0)',
                 paper_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='#39ff14')
             )
-            fig3.update_xaxes(tickprefix="R$ ")
+            fig3.update_xaxes(tickprefix="R$ ", tickformat=",.2f")
             st.plotly_chart(fig3, use_container_width=True)
         else:
             st.write("Não há valores negativos para exibir nas top 5 despesas.")
     
         # Novo Gráfico: DRE Mensal - Entradas vs Saídas
         st.subheader("DRE Mensal: Entradas vs Saídas")
-        # Reutiliza a coluna 'Mês/Ano'
+        # Já existe a coluna 'Mês/Ano'
         df_filtrado['Mês/Ano'] = df_filtrado['Data'].dt.to_period('M').astype(str)
     
         # Agrupa entradas e saídas separadamente
@@ -209,7 +211,7 @@ if df is not None:
                 labels={'Valor': 'Valor (R$)'},
                 template='plotly_dark'
             )
-            fig_dre.update_yaxes(tickprefix="R$ ")
+            fig_dre.update_yaxes(tickprefix="R$ ", tickformat=",.2f")
             st.plotly_chart(fig_dre, use_container_width=True)
         else:
             st.write("Não há dados suficientes para exibir o gráfico DRE.")
