@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 
 # Configuração inicial da página do Streamlit
-st.set_page_config(page_title="Dashboard Financeiro Neon", layout="wide")
+st.set_page_config(page_title="Dashboard Financeiro", layout="wide")
 
 # Função para converter DataFrame para CSV
 def convert_df(df):
@@ -35,6 +35,10 @@ st.markdown("""
     /* Estilo dos elementos da barra lateral */
     .sidebar .sidebar-content {
         background-color: #1a1a1a;
+    }
+    /* Separador */
+    hr {
+        border: 1px solid #39ff14;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -83,8 +87,9 @@ if df is not None:
         df_filtrado = df_filtrado[df_filtrado['Plano de contas'].str.contains(filtro_plano_contas, case=False, na=False)]
     
     # --- Cabeçalho ---
-    st.title("💹 Dashboard Financeiro Neon")
-    st.markdown("Bem-vindo ao dashboard financeiro com temática neon. Visualize e analise os dados de vendas e despesas com um visual moderno.")
+    st.title("💹 Dashboard Financeiro")
+    st.markdown("Bem-vindo ao dashboard financeiro. Visualize e analise os dados de vendas e despesas de forma clara e objetiva.")
+    st.markdown("<hr>", unsafe_allow_html=True)
     
     # Calcular métricas de vendas
     total_vendas = df_filtrado[df_filtrado['Plano de contas'].str.contains(r'(?i)^vendas$', na=False)]['Valor'].sum()
@@ -128,8 +133,8 @@ if df is not None:
     
     # --- Aba Gráficos ---
     with tab3:
-        # Gráfico de Entradas de Disponibilidade (valores positivos)
-        st.subheader("Entradas de Disponibilidade (Valores Positivos)")
+        # Gráfico de Entradas (valores positivos)
+        st.subheader("Entradas (Valores Positivos)")
         df_positivo = df_filtrado[df_filtrado['Valor'] > 0]
         df_positivo_agrupado = df_positivo.groupby('Plano de contas')['Valor'].sum().reset_index()
         if not df_positivo_agrupado.empty:
@@ -138,7 +143,7 @@ if df is not None:
                 x='Plano de contas',
                 y='Valor',
                 color='Plano de contas',
-                title='Entradas de Disponibilidade por Plano de Contas',
+                title='Entradas por Plano de Contas',
                 labels={'Valor': 'Valor (R$)'},
                 template='plotly_dark',
                 color_discrete_sequence=px.colors.qualitative.Prism
@@ -155,8 +160,8 @@ if df is not None:
         else:
             st.write("Não há valores positivos para exibir.")
     
-        # Top 5 categorias de despesas
-        st.subheader("Top 5 Categorias de Despesas")
+        # Gráfico de Saídas (valores negativos)
+        st.subheader("Saídas (Valores Negativos)")
         df_negativo = df_filtrado[df_filtrado['Valor'] < 0]
         df_negativo_agrupado = df_negativo.groupby('Plano de contas')['Valor'].sum().abs().reset_index()
         if not df_negativo_agrupado.empty:
@@ -166,7 +171,7 @@ if df is not None:
                 y='Plano de contas',
                 x='Valor',
                 orientation='h',
-                title='Top 5 Categorias de Despesas',
+                title='Top 5 Categorias de Saídas',
                 labels={'Valor': 'Valor (R$)', 'Plano de contas': 'Plano de Contas'},
                 template='plotly_dark',
                 color_discrete_sequence=['#ff1493']
@@ -181,23 +186,19 @@ if df is not None:
             fig3.update_xaxes(tickprefix="R$ ", tickformat=",.2f")
             st.plotly_chart(fig3, use_container_width=True)
         else:
-            st.write("Não há valores negativos para exibir nas top 5 despesas.")
+            st.write("Não há valores negativos para exibir nas top 5 saídas.")
     
-        # Novo Gráfico: DRE Mensal - Entradas vs Saídas
-        st.subheader("DRE Mensal: Entradas vs Saídas")
-        # Já existe a coluna 'Mês/Ano'
+        # Gráfico: Entradas e Saídas ao Longo dos Meses
+        st.subheader("Entradas e Saídas")
         df_filtrado['Mês/Ano'] = df_filtrado['Data'].dt.to_period('M').astype(str)
     
-        # Agrupa entradas e saídas separadamente
         df_entradas = df_filtrado[df_filtrado['Valor'] > 0].groupby('Mês/Ano')['Valor'].sum().reset_index()
         df_saidas = df_filtrado[df_filtrado['Valor'] < 0].groupby('Mês/Ano')['Valor'].sum().reset_index()
-        df_saidas['Valor'] = df_saidas['Valor'].abs()  # Converte para valor absoluto
+        df_saidas['Valor'] = df_saidas['Valor'].abs()
     
-        # Adiciona coluna identificando o tipo
         df_entradas['Tipo'] = 'Entradas'
         df_saidas['Tipo'] = 'Saídas'
     
-        # Concatena os dois dataframes para visualização conjunta
         df_dre = pd.concat([df_entradas, df_saidas], axis=0)
     
         if not df_dre.empty:
@@ -207,14 +208,14 @@ if df is not None:
                 y='Valor',
                 color='Tipo',
                 barmode='group',
-                title='DRE Mensal: Entradas vs Saídas',
+                title='Entradas e Saídas',
                 labels={'Valor': 'Valor (R$)'},
                 template='plotly_dark'
             )
             fig_dre.update_yaxes(tickprefix="R$ ", tickformat=",.2f")
             st.plotly_chart(fig_dre, use_container_width=True)
         else:
-            st.write("Não há dados suficientes para exibir o gráfico DRE.")
+            st.write("Não há dados suficientes para exibir o gráfico de entradas e saídas.")
     
     # --- Aba Exportação ---
     with tab4:
